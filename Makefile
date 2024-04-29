@@ -1,17 +1,18 @@
 CXX = g++
-CXXFLAGS = -g -Wall -Werror -Iinclude -Llib
+CXXFLAGS = -g -Wall -Werror -Iinclude -Llib --std=c++17
 CC = gcc
 CFLAGS = -g -Wall -Werror -Iinclude -Llib
 LIBS = -lglfw3 -lgdi32
-OBJS = main.o glad.o
+OBJS = main.o glad.o shader.o
 
-VPATH = src
+VPATH = src:src/shaders
 
 game : $(OBJS)
 	$(CXX) $(CXXFLAGS) -o game $(OBJS) $(LIBS)
 
-main.o :
+main.o : shader.h
 glad.o :
+shader.o : shader.h
 
 .PHONY : clean
 clean :
