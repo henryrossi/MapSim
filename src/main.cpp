@@ -142,10 +142,19 @@ int main() {
         shader.set_uniform("material.diffuse", 0);
         shader.set_uniform("material.specular", 1);
         shader.set_uniform("material.shininess", 32.0f);
-        shader.set_uniform("light.ambient",  0.2f, 0.2f, 0.2f);
-        shader.set_uniform("light.diffuse",  0.5f, 0.5f, 0.5f);
-        shader.set_uniform("light.specular", 1.0f, 1.0f, 1.0f);
-        shader.set_uniform("light.position", lightPos);
+
+        shader.set_uniform("dirLight.direction", -0.2f, -1.0f, -0.3f);
+        shader.set_uniform("dirLight.ambient", 0.15f, 0.15f, 0.15f);
+        shader.set_uniform("dirLight.diffuse", 0.7f, 0.7f, 0.7f);
+        shader.set_uniform("dirLight.specular", 0.8f, 0.8f, 0.8f);
+
+        shader.set_uniform("pointLight.ambient",  0.2f, 0.2f, 0.2f);
+        shader.set_uniform("pointLight.diffuse",  0.5f, 0.5f, 0.5f);
+        shader.set_uniform("pointLight.specular", 1.0f, 1.0f, 1.0f);
+        shader.set_uniform("pointLight.position", lightPos);
+        shader.set_uniform("pointLight.constant", 1.0f);
+        shader.set_uniform("pointLight.linear", 0.09f);
+        shader.set_uniform("pointLight.quadratic", 0.032f);
 
         glEnable(GL_DEPTH_TEST);
 	while (!glfwWindowShouldClose(window)) {
