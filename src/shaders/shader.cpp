@@ -1,4 +1,4 @@
-#include "shader.h"
+#include "shader.hpp"
 
 Shader::Shader(const char* vertexPath, const char* fragmentPath) {
         std::ifstream vertexFile, fragmentFile;
@@ -59,4 +59,8 @@ Shader::Shader(const char* vertexPath, const char* fragmentPath) {
 
 void Shader::use() {
         glUseProgram(ID);
+}
+
+void Shader::set_uniform(const char *name, glm::mat4 &mat) const {
+        glUniformMatrix4fv(glGetUniformLocation(ID, name), 1, GL_FALSE, &mat[0][0]);
 }
