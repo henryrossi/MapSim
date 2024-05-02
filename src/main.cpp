@@ -9,7 +9,7 @@
 #include <vector>
 #include <map>
 
-#include "shaders/shader.hpp"
+#include "shader.hpp"
 #include "mapcamera.hpp"
 #include "flycamera.hpp"
 

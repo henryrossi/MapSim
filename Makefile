@@ -5,7 +5,7 @@ CFLAGS = -g -Wall -Werror -Iinclude -Llib
 LIBS = -lglfw3 -lgdi32
 OBJS = main.o glad.o shader.o stb_image.o mapcamera.o flycamera.o
 
-VPATH = src:src/shaders
+VPATH = src
 
 game : $(OBJS)
 	$(CXX) $(CXXFLAGS) -o game $(OBJS) $(LIBS)
