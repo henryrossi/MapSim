@@ -3,6 +3,7 @@
 #include <stb_image.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
 
 #include <iostream>
 #include <vector>
@@ -231,7 +232,22 @@ int main() {
                 "src/textures/skybox/back.jpg"
         };
         unsigned int skyboxTexture = load_cubemap(faces);  
+
+        // GLuint uniformBlockIndexShader = glGetUniformBlockIndex(shader.ID, "Matrices");
+        // GLuint uniformBlockIndexSkybox = glGetUniformBlockIndex(skyboxShader.ID, "Matrices");
+        // GLuint uniformBlockIndexReflection = glGetUniformBlockIndex(reflectionShader.ID, "Matrices");
+        // glUniformBlockBinding(shader.ID, uniformBlockIndexShader, 0);
+        // glUniformBlockBinding(skyboxShader.ID, uniformBlockIndexSkybox, 0);
+        // glUniformBlockBinding(reflectionShader.ID, uniformBlockIndexReflection, 0);
  
+        GLuint uboMatrices;
+        glGenBuffers(1, &uboMatrices);
+        glBindBuffer(GL_UNIFORM_BUFFER, uboMatrices);
+        glBufferData(GL_UNIFORM_BUFFER, 2 * sizeof(glm::mat4), NULL, GL_STATIC_DRAW);
+        glBindBuffer(GL_UNIFORM_BUFFER, 0);
+
+        glBindBufferRange(GL_UNIFORM_BUFFER, 0, uboMatrices, 0, 2 * sizeof(glm::mat4));
+
         
         shader.use();
         shader.set_uniform("texture1", 0);
@@ -263,21 +279,23 @@ int main() {
                 glm::mat4 proj = glm::perspective(glm::radians(camera.FOV), 
                                                   (float)screen_width/(float)screen_height,
                                                   0.1f, 100.0f);
+
+                glBindBuffer(GL_UNIFORM_BUFFER, uboMatrices);
+                glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(glm::mat4), glm::value_ptr(proj));
+                glBufferSubData(GL_UNIFORM_BUFFER, sizeof(glm::mat4), sizeof(glm::mat4), glm::value_ptr(view));
+                glBindBuffer(GL_UNIFORM_BUFFER, 0);
+                
                 glm::mat4 model{1.0f};
 
                 shader.use();
                 glActiveTexture(GL_TEXTURE0);
                 glBindTexture(GL_TEXTURE_2D, planeTexture);
                 glBindVertexArray(planeVAO);
-                shader.set_uniform("view", view);
-                shader.set_uniform("projection", proj);
                 shader.set_uniform("model", model);
                 glDrawArrays(GL_TRIANGLES, 0, 36);
 
                 reflectionShader.use();
                 reflectionShader.set_uniform("cameraPos", camera.Position);
-                reflectionShader.set_uniform("view", view);
-                reflectionShader.set_uniform("projection", proj);
                 glBindTexture(GL_TEXTURE_2D, cubeTexture);
                 glBindVertexArray(cubeVAO);
                 model = glm::mat4{1.0f};
@@ -293,8 +311,7 @@ int main() {
                 glDepthFunc(GL_LEQUAL);
                 skyboxShader.use();
                 glm::mat4 skyview = glm::mat4(glm::mat3(camera.GetViewMatrix()));  
-                shader.set_uniform("view", skyview);
-                shader.set_uniform("projection", proj);
+                skyboxShader.set_uniform("skyview", skyview);
                 glBindVertexArray(skyboxVAO);
                 glActiveTexture(GL_TEXTURE0);
                 glBindTexture(GL_TEXTURE_CUBE_MAP, skyboxTexture);
