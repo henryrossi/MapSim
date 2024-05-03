@@ -1,5 +1,6 @@
 game.exe
 *.o
 *.a
+*.dll
 
 .vscode
