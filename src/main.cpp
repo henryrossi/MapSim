@@ -61,9 +61,10 @@ int main() {
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-        Shader shader{"src/shaders/shader.vs", "src/shaders/shader.fs"};
+        Shader shader{"src/shaders/shader.vs", "src/shaders/shader.fs", "src/shaders/explode.gs"};
         Shader skyboxShader {"src/shaders/skybox.vs", "src/shaders/skybox.fs"};
         Shader reflectionShader {"src/shaders/reflective.vs", "src/shaders/reflective.fs"};
+        Shader pointShader {"src/shaders/geo.vs", "src/shaders/geo.fs", "src/shaders/geo.gs"};
 
 
         float cubeVertices[] = {
@@ -233,12 +234,22 @@ int main() {
         };
         unsigned int skyboxTexture = load_cubemap(faces);  
 
-        // GLuint uniformBlockIndexShader = glGetUniformBlockIndex(shader.ID, "Matrices");
-        // GLuint uniformBlockIndexSkybox = glGetUniformBlockIndex(skyboxShader.ID, "Matrices");
-        // GLuint uniformBlockIndexReflection = glGetUniformBlockIndex(reflectionShader.ID, "Matrices");
-        // glUniformBlockBinding(shader.ID, uniformBlockIndexShader, 0);
-        // glUniformBlockBinding(skyboxShader.ID, uniformBlockIndexSkybox, 0);
-        // glUniformBlockBinding(reflectionShader.ID, uniformBlockIndexReflection, 0);
+        float points[] = {
+                -0.5f,  0.5f, 1.0f, 0.0f, 0.0f, // top-left
+                0.5f,  0.5f, 0.0f, 1.0f, 0.0f, // top-right
+                0.5f, -0.5f, 0.0f, 0.0f, 1.0f, // bottom-right
+                -0.5f, -0.5f, 1.0f, 1.0f, 0.0f  // bottom-left
+        };   
+        GLuint pointVAO, pointVBO;
+        glGenVertexArrays(1, &pointVAO);
+        glGenBuffers(1, &pointVBO);
+        glBindVertexArray(pointVAO);
+        glBindBuffer(GL_ARRAY_BUFFER, pointVBO);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(points), points, GL_STATIC_DRAW);
+        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void *)0);
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void *)(2 * sizeof(float)));
+        glEnableVertexAttribArray(1);
  
         GLuint uboMatrices;
         glGenBuffers(1, &uboMatrices);
@@ -288,6 +299,7 @@ int main() {
                 glm::mat4 model{1.0f};
 
                 shader.use();
+                shader.set_uniform("time", static_cast<float>(glfwGetTime()));  
                 glActiveTexture(GL_TEXTURE0);
                 glBindTexture(GL_TEXTURE_2D, planeTexture);
                 glBindVertexArray(planeVAO);
@@ -332,6 +344,10 @@ int main() {
                         shader.set_uniform("model", model);
                         glDrawArrays(GL_TRIANGLES, 0, 6);
                 }  
+
+                pointShader.use();
+                glBindVertexArray(pointVAO);
+                glDrawArrays(GL_POINTS, 0, 4);
 
 		glfwSwapBuffers(window);
 		glfwPollEvents();

@@ -9,12 +9,18 @@
 #include <sstream>
 #include <iostream>
 
-class Shader
-{
-public:
-        unsigned int ID;
+enum ShaderType {
+        VERTEX,
+        FRAGMENT,
+        GEOMETRY,
+};
 
-        Shader(const char* vertexPath, const char* fragmentPath);
+class Shader {
+public:
+        unsigned int id;
+
+        Shader(const char *vertex_path, const char *fragment_path);
+        Shader(const char *vertex_path, const char *fragment_path, const char *geometry_path);
 
         void use();
 
@@ -23,5 +29,9 @@ public:
         void set_uniform(const char *name, float x, float y, float z) const;
         void set_uniform(const char *name, glm::vec3 &vec) const;
         void set_uniform(const char *name, glm::mat4 &mat) const;
+private:
+        std::string read_glsl_shader(const char *path);
+        GLuint compile_shader(const char *shader_contents, ShaderType type);
 };
-#endif
+
+#endif /* SHADER_H */
