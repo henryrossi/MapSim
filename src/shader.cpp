@@ -98,6 +98,14 @@ void Shader::set_uniform(const char *name, float f) const {
         glUniform1f(glGetUniformLocation(id, name), f);
 }
 
+void Shader::set_uniform(const char *name, float x, float y) const {
+        glUniform2f(glGetUniformLocation(id, name), x, y);
+}
+
+void Shader::set_uniform(const char *name, glm::vec2 &vec) const {
+        glUniform2fv(glGetUniformLocation(id, name), 1, &vec[0]);
+}
+
 void Shader::set_uniform(const char *name, float x, float y, float z) const {
         glUniform3f(glGetUniformLocation(id, name), x, y, z);
 }
