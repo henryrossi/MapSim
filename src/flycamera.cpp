@@ -6,7 +6,7 @@ FlyCamera::FlyCamera(glm::vec3 position, float screen_w, float screen_h)
 }
 
 FlyCamera::FlyCamera(float posX, float posY, float posZ, float screen_w, float screen_h)
-                    : Front{0.0f, 0.0f, -1.0f}, lastX{screen_w / 2}, lastY{screen_h / 2} {
+                    : Position{posX, posY, posZ}, lastX{screen_w / 2}, lastY{screen_h / 2} {
         updateCameraVectors();
 }
 
