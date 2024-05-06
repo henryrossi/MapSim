@@ -25,6 +25,7 @@ public:
         void use();
 
         void set_uniform(const char *name, int i) const;
+        void set_uniform(const char *name, unsigned int i) const;
         void set_uniform(const char *name, float f) const;
         void set_uniform(const char *name, float x, float y) const;
         void set_uniform(const char *name, glm::vec2 &vec) const;

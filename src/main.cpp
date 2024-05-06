@@ -60,6 +60,8 @@ int main() {
                 return -1;
         }
 
+        stbi_set_flip_vertically_on_load(true);
+
         glEnable(GL_DEPTH_TEST);
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -152,7 +154,7 @@ int main() {
                                          1.0f)); // it's a bit too big for our
                                                  // scene, so scale it down
                 shader.set_uniform("model", model);
-                ourModel.Draw(shader);
+                ourModel.draw(shader);
 
                 glfwSwapBuffers(window);
                 glfwPollEvents();
