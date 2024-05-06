@@ -16,7 +16,7 @@ void Model::load_model(std::string path) {
                           << std::endl;
                 return;
         }
-        
+
         directory = path.substr(0, path.find_last_of('/'));
 
         process_node(scene->mRootNode, scene);

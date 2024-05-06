@@ -34,6 +34,7 @@ struct Texture {
 
 class Mesh {
       public:
+        GLuint VAO;
         std::vector<Vertex> vertices;
         std::vector<GLuint> indices;
         std::vector<Texture> textures;
@@ -43,7 +44,7 @@ class Mesh {
         void draw(Shader &shader);
 
       private:
-        unsigned int VAO, VBO, EBO;
+        GLuint VBO, EBO;
 
         void setup_mesh();
 };
@@ -53,9 +54,10 @@ class Model {
         Model(const char *path);
         void draw(Shader &shader);
 
-      private:
         std::vector<Mesh> meshes;
         std::vector<Texture> textures_loaded;
+
+      private:
         std::string directory;
 
         void load_model(std::string path);
