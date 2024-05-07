@@ -21,12 +21,13 @@ void mouse_callback(GLFWwindow *window, double xposIn, double yposIn);
 void scroll_callback(GLFWwindow *window, double xoffset, double yoffset);
 GLuint load_texture(const char *);
 GLuint load_cubemap(std::vector<const char *> faces);
+void renderQuad();
 
 const int screen_width = 800;
 const int screen_height = 600;
 
 // MapCamera camera{0.0f, 0.0f,  4.0f};
-FlyCamera camera{0.0f, 5.0f, 50.0f, screen_width, screen_height};
+FlyCamera camera{0.0f, 0.0f, 6.0f, screen_width, screen_height};
 
 float deltaTime = 0.0f;
 float lastFrame = 0.0f;
@@ -66,80 +67,143 @@ int main() {
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-        // Shader shader{"src/shaders/shader.vs", "src/shaders/shader.fs"};
+        Shader shader{"src/shaders/BlinnPhong.vs", "src/shaders/BlinnPhong.fs"};
+        Shader depthShader{"src/shaders/simpleDepthShader.vs",
+                           "src/shaders/simpleDepthShader.fs"};
+        Shader debugDepthQuad("src/shaders/debugShadow.vs",
+                              "src/shaders/debugShadow.fs");
 
-        Shader shader{"src/shaders/instancing.vs", "src/shaders/instancing.fs"};
-        Model planet{"resources/planet/planet.obj"};
-        Shader asteroid_shader{"src/shaders/ast_instancing.vs", "src/shaders/instancing.fs"};
-        Model rock{"resources/rock/rock.obj"};
+        float vertices[] = {
+                // back face
+                -1.0f, -1.0f, -1.0f, 0.0f, 0.0f, -1.0f, 0.0f,
+                0.0f,                                             // bottom-left
+                1.0f, 1.0f, -1.0f, 0.0f, 0.0f, -1.0f, 1.0f, 1.0f, // top-right
+                1.0f, -1.0f, -1.0f, 0.0f, 0.0f, -1.0f, 1.0f,
+                0.0f, // bottom-right
+                1.0f, 1.0f, -1.0f, 0.0f, 0.0f, -1.0f, 1.0f, 1.0f, // top-right
+                -1.0f, -1.0f, -1.0f, 0.0f, 0.0f, -1.0f, 0.0f,
+                0.0f, // bottom-left
+                -1.0f, 1.0f, -1.0f, 0.0f, 0.0f, -1.0f, 0.0f, 1.0f, // top-left
+                // front face
+                -1.0f, -1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, // bottom-left
+                1.0f, -1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f, 0.0f, // bottom-right
+                1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f,  // top-right
+                1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f,  // top-right
+                -1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f, // top-left
+                -1.0f, -1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, // bottom-left
+                // left face
+                -1.0f, 1.0f, 1.0f, -1.0f, 0.0f, 0.0f, 1.0f, 0.0f,  // top-right
+                -1.0f, 1.0f, -1.0f, -1.0f, 0.0f, 0.0f, 1.0f, 1.0f, // top-left
+                -1.0f, -1.0f, -1.0f, -1.0f, 0.0f, 0.0f, 0.0f,
+                1.0f, // bottom-left
+                -1.0f, -1.0f, -1.0f, -1.0f, 0.0f, 0.0f, 0.0f,
+                1.0f, // bottom-left
+                -1.0f, -1.0f, 1.0f, -1.0f, 0.0f, 0.0f, 0.0f,
+                0.0f, // bottom-right
+                -1.0f, 1.0f, 1.0f, -1.0f, 0.0f, 0.0f, 1.0f, 0.0f, // top-right
+                // right face
+                1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, // top-left
+                1.0f, -1.0f, -1.0f, 1.0f, 0.0f, 0.0f, 0.0f,
+                1.0f,                                            // bottom-right
+                1.0f, 1.0f, -1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f, // top-right
+                1.0f, -1.0f, -1.0f, 1.0f, 0.0f, 0.0f, 0.0f,
+                1.0f,                                            // bottom-right
+                1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f,  // top-left
+                1.0f, -1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, // bottom-left
+                // bottom face
+                -1.0f, -1.0f, -1.0f, 0.0f, -1.0f, 0.0f, 0.0f, 1.0f, // top-right
+                1.0f, -1.0f, -1.0f, 0.0f, -1.0f, 0.0f, 1.0f, 1.0f,  // top-left
+                1.0f, -1.0f, 1.0f, 0.0f, -1.0f, 0.0f, 1.0f, 0.0f, // bottom-left
+                1.0f, -1.0f, 1.0f, 0.0f, -1.0f, 0.0f, 1.0f, 0.0f, // bottom-left
+                -1.0f, -1.0f, 1.0f, 0.0f, -1.0f, 0.0f, 0.0f,
+                0.0f, // bottom-right
+                -1.0f, -1.0f, -1.0f, 0.0f, -1.0f, 0.0f, 0.0f, 1.0f, // top-right
+                // top face
+                -1.0f, 1.0f, -1.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, // top-left
+                1.0f, 1.0f, 1.0f, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f,  // bottom-right
+                1.0f, 1.0f, -1.0f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f, // top-right
+                1.0f, 1.0f, 1.0f, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f,  // bottom-right
+                -1.0f, 1.0f, -1.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, // top-left
+                -1.0f, 1.0f, 1.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f   // bottom-left
+        };
+        GLuint cubeVAO, cubeVBO;
+        glGenVertexArrays(1, &cubeVAO);
+        glGenBuffers(1, &cubeVBO);
+        // fill buffer
+        glBindBuffer(GL_ARRAY_BUFFER, cubeVBO);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices,
+                     GL_STATIC_DRAW);
+        // link vertex attributes
+        glBindVertexArray(cubeVAO);
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float),
+                              (void *)0);
+        glEnableVertexAttribArray(1);
+        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float),
+                              (void *)(3 * sizeof(float)));
+        glEnableVertexAttribArray(2);
+        glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float),
+                              (void *)(6 * sizeof(float)));
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+        glBindVertexArray(0);
 
-        unsigned int amount = 2000000;
-        glm::mat4 *modelMatrices;
-        modelMatrices = new glm::mat4[amount];
-        srand(glfwGetTime());
-        float radius = 150.0f;
-        float offset = 100.0f;
-        for (unsigned int i = 0; i < amount; i++) {
-                glm::mat4 model = glm::mat4(1.0f);
-                // 1. translation: displace along circle with 'radius' in range
-                // [-offset, offset]
-                float angle = (float)i / (float)amount * 360.0f;
-                float displacement =
-                        (rand() % (int)(2 * offset * 100)) / 100.0f - offset;
-                float x = sin(angle) * radius + displacement;
-                displacement =
-                        (rand() % (int)(2 * offset * 100)) / 100.0f - offset;
-                float y = displacement * 0.4f; // keep height of field smaller
-                                               // compared to width of x and z
-                displacement =
-                        (rand() % (int)(2 * offset * 100)) / 100.0f - offset;
-                float z = cos(angle) * radius + displacement;
-                model = glm::translate(model, glm::vec3(x, y, z));
+        float planeVertices[] = {
+                // positions            // normals         // texcoords
+                25.0f,  -0.5f, 25.0f,  0.0f, 1.0f, 0.0f, 25.0f, 0.0f,
+                -25.0f, -0.5f, 25.0f,  0.0f, 1.0f, 0.0f, 0.0f,  0.0f,
+                -25.0f, -0.5f, -25.0f, 0.0f, 1.0f, 0.0f, 0.0f,  25.0f,
 
-                // 2. scale: scale between 0.05 and 0.25f
-                float scale = (rand() % 20) / 100.0f + 0.05;
-                model = glm::scale(model, glm::vec3(scale));
+                25.0f,  -0.5f, 25.0f,  0.0f, 1.0f, 0.0f, 25.0f, 0.0f,
+                -25.0f, -0.5f, -25.0f, 0.0f, 1.0f, 0.0f, 0.0f,  25.0f,
+                25.0f,  -0.5f, -25.0f, 0.0f, 1.0f, 0.0f, 25.0f, 25.0f};
+        // plane VAO
+        unsigned int planeVAO, planeVBO;
+        glGenVertexArrays(1, &planeVAO);
+        glGenBuffers(1, &planeVBO);
+        glBindVertexArray(planeVAO);
+        glBindBuffer(GL_ARRAY_BUFFER, planeVBO);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(planeVertices), planeVertices,
+                     GL_STATIC_DRAW);
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float),
+                              (void *)0);
+        glEnableVertexAttribArray(1);
+        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float),
+                              (void *)(3 * sizeof(float)));
+        glEnableVertexAttribArray(2);
+        glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float),
+                              (void *)(6 * sizeof(float)));
+        glBindVertexArray(0);
 
-                // 3. rotation: add random rotation around a (semi)randomly
-                // picked rotation axis vector
-                float rotAngle = (rand() % 360);
-                model = glm::rotate(model, rotAngle,
-                                    glm::vec3(0.4f, 0.6f, 0.8f));
+        // Framebuffers
+        // -------------
+        const unsigned int SHADOW_WIDTH = 1024, SHADOW_HEIGHT = 1024;
+        unsigned int depthMapFBO;
+        glGenFramebuffers(1, &depthMapFBO);
+        unsigned int depthMap;
+        glGenTextures(1, &depthMap);
+        glBindTexture(GL_TEXTURE_2D, depthMap);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, SHADOW_WIDTH,
+                     SHADOW_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
+                               GL_TEXTURE_2D, depthMap, 0);
+        glDrawBuffer(GL_NONE);
+        glReadBuffer(GL_NONE);
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-                // 4. now add to list of matrices
-                modelMatrices[i] = model;
-        }
+        // load textures
+        // -------------
+        unsigned int floorTexture = load_texture("resources/textures/wood.png");
 
-        GLuint buffer;
-        glGenBuffers(1, &buffer);
-        glBindBuffer(GL_ARRAY_BUFFER, buffer);
-        glBufferData(GL_ARRAY_BUFFER, amount * sizeof(glm::mat4),
-                     &modelMatrices[0], GL_STATIC_DRAW);
+        glm::vec3 lightPos(-3.0f, 1.0f, 1.5f);
 
-        for (unsigned int i = 0; i < rock.meshes.size(); i++) {
-                GLuint VAO = rock.meshes[i].VAO;
-                glBindVertexArray(VAO);
-                std::size_t vec4size = sizeof(glm::vec4);
-                glEnableVertexAttribArray(3);
-                glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE,
-                                      4 * vec4size, (void *)0);
-                glEnableVertexAttribArray(4);
-                glVertexAttribPointer(4, 4, GL_FLOAT, GL_FALSE,
-                                      4 * vec4size, (void *)(vec4size));
-                glEnableVertexAttribArray(5);
-                glVertexAttribPointer(5, 4, GL_FLOAT, GL_FALSE,
-                                      4 * vec4size, (void *)(2 * vec4size));
-                glEnableVertexAttribArray(6);
-                glVertexAttribPointer(6, 4, GL_FLOAT, GL_FALSE,
-                                      4 * vec4size, (void *)(3 * vec4size));
-
-                glVertexAttribDivisor(3, 1);
-                glVertexAttribDivisor(4, 1);
-                glVertexAttribDivisor(5, 1);
-                glVertexAttribDivisor(6, 1);
-
-                glBindVertexArray(0);
-        }
+        shader.set_uniform("texture1", 0);
+        shader.set_uniform("shadowMap", 1);
 
         while (!glfwWindowShouldClose(window)) {
                 float currentFrame = glfwGetTime();
@@ -148,10 +212,50 @@ int main() {
 
                 process_input(window);
 
+                glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
+                glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
+                glClear(GL_DEPTH_BUFFER_BIT);
+
+                depthShader.use();
+                float near_plane = 1.0f, far_plane = 7.5f;
+                glm::mat4 lightProjection = glm::ortho(
+                        -10.0f, 10.0f, -10.0f, 10.0f, near_plane, far_plane);
+                glm::mat4 lightView =
+                        glm::lookAt(lightPos, glm::vec3(0.0f, 0.0f, 0.0f),
+                                    glm::vec3(0.0f, 1.0f, 0.0f));
+                glm::mat4 lightSpaceMatrix = lightProjection * lightView;
+                depthShader.set_uniform("lightSpaceMatrix", lightSpaceMatrix);
+
+                glm::mat4 model = glm::mat4(1.0f);
+
+                glBindVertexArray(cubeVAO);
+                glActiveTexture(GL_TEXTURE0);
+                glBindTexture(GL_TEXTURE_2D, floorTexture);
+                model = glm::translate(model, glm::vec3(-1.0f, 0.5f, -1.0f));
+                depthShader.set_uniform("model", model);
+                glDrawArrays(GL_TRIANGLES, 0, 36);
+                model = glm::mat4(1.0f);
+                model = glm::translate(model, glm::vec3(2.0f, 0.5f, 0.0f));
+                depthShader.set_uniform("model", model);
+                glDrawArrays(GL_TRIANGLES, 0, 36);
+
+                glBindVertexArray(planeVAO);
+                model = glm::mat4(1.0f);
+                depthShader.set_uniform("model", model);
+                glDrawArrays(GL_TRIANGLES, 0, 6);
+                glBindVertexArray(0);
+
+                glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+                /*
+                 *
+                 */
+
+                glViewport(0, 0, screen_width, screen_height);
                 glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
                 glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-                glEnable(GL_DEPTH_TEST);
-                glEnable(GL_BLEND);
+
+                glBindTexture(GL_TEXTURE_2D, depthMap);
 
                 glm::mat4 projection = glm::perspective(
                         glm::radians(camera.FOV),
@@ -160,26 +264,38 @@ int main() {
                 glm::mat4 view = camera.GetViewMatrix();
 
                 shader.use();
+                shader.set_uniform("viewPos", camera.Position);
+                shader.set_uniform("lightPos", lightPos);
                 shader.set_uniform("projection", projection);
                 shader.set_uniform("view", view);
-                glm::mat4 model = glm::mat4(1.0f);
-                model = glm::translate(model, glm::vec3(0.0f, -3.0f, 0.0f));
-                model = glm::scale(model, glm::vec3(4.0f, 4.0f, 4.0f));
-                shader.set_uniform("model", model);
-                planet.draw(shader);
+                shader.set_uniform("lightSpaceMatrix", lightSpaceMatrix);
 
-                asteroid_shader.use();
-                asteroid_shader.set_uniform("projection", projection);
-                asteroid_shader.set_uniform("view", view);
-                asteroid_shader.set_uniform("texture_diffuse1", 0);
+                glBindVertexArray(cubeVAO);
+                glActiveTexture(GL_TEXTURE1);
+                glBindTexture(GL_TEXTURE_2D, depthMap);
                 glActiveTexture(GL_TEXTURE0);
-                glBindTexture(GL_TEXTURE_2D, rock.textures_loaded[0].id);
-                for (unsigned int i = 0; i < rock.meshes.size(); i++) {
-                        glBindVertexArray(rock.meshes[i].VAO);
-                        glDrawElementsInstanced(GL_TRIANGLES,
-                                                rock.meshes[i].indices.size(),
-                                                GL_UNSIGNED_INT, 0, amount);
-                }
+                glBindTexture(GL_TEXTURE_2D, floorTexture);
+                model = glm::translate(model, glm::vec3(-1.0f, 0.5f, -1.0f));
+                shader.set_uniform("model", model);
+                glDrawArrays(GL_TRIANGLES, 0, 36);
+                model = glm::mat4(1.0f);
+                model = glm::translate(model, glm::vec3(2.0f, 0.5f, 0.0f));
+                shader.set_uniform("model", model);
+                glDrawArrays(GL_TRIANGLES, 0, 36);
+
+                glBindVertexArray(planeVAO);
+                model = glm::mat4(1.0f);
+                shader.set_uniform("model", model);
+                glDrawArrays(GL_TRIANGLES, 0, 6);
+                glBindVertexArray(0);
+
+                debugDepthQuad.use();
+                debugDepthQuad.set_uniform("near_plane", near_plane);
+                debugDepthQuad.set_uniform("far_plane", far_plane);
+                debugDepthQuad.set_uniform("depthMap", 0);
+                glActiveTexture(GL_TEXTURE0);
+                glBindTexture(GL_TEXTURE_2D, depthMap);
+                //renderQuad();
 
                 glfwSwapBuffers(window);
                 glfwPollEvents();
@@ -301,4 +417,34 @@ GLuint load_cubemap(std::vector<const char *> faces) {
                         GL_CLAMP_TO_EDGE);
 
         return textureID;
+}
+
+unsigned int quadVAO = 0;
+unsigned int quadVBO;
+void renderQuad() {
+        if (quadVAO == 0) {
+                float quadVertices[] = {
+                        // positions        // texture Coords
+                        -1.0f, 1.0f, 0.0f,  0.0f, 1.0f, -1.0f, -1.0f,
+                        0.0f,  0.0f, 0.0f,  1.0f, 1.0f, 0.0f,  1.0f,
+                        1.0f,  1.0f, -1.0f, 0.0f, 1.0f, 0.0f,
+                };
+                // setup plane VAO
+                glGenVertexArrays(1, &quadVAO);
+                glGenBuffers(1, &quadVBO);
+                glBindVertexArray(quadVAO);
+                glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
+                glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices),
+                             &quadVertices, GL_STATIC_DRAW);
+                glEnableVertexAttribArray(0);
+                glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE,
+                                      5 * sizeof(float), (void *)0);
+                glEnableVertexAttribArray(1);
+                glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE,
+                                      5 * sizeof(float),
+                                      (void *)(3 * sizeof(float)));
+        }
+        glBindVertexArray(quadVAO);
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+        glBindVertexArray(0);
 }
