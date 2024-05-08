@@ -6,13 +6,7 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <stb_image.h>
 
-#include <iostream>
-#include <map>
-#include <vector>
-
-#include "flycamera.hpp"
 #include "mapcamera.hpp"
-#include "model.hpp"
 #include "shader.hpp"
 
 void framebuffer_size_callback(GLFWwindow *window, int width, int height);
@@ -20,13 +14,14 @@ void process_input(GLFWwindow *window);
 void mouse_callback(GLFWwindow *window, double xposIn, double yposIn);
 void scroll_callback(GLFWwindow *window, double xoffset, double yoffset);
 GLuint load_texture(const char *);
-GLuint load_cubemap(std::vector<const char *> faces);
+
+void render_quad(GLuint vao, GLuint vbo);
+void create_noise(unsigned char *data, int width, int height);
 
 const int screen_width = 800;
 const int screen_height = 600;
 
-// MapCamera camera{0.0f, 0.0f,  4.0f};
-FlyCamera camera{0.0f, 5.0f, 50.0f, screen_width, screen_height};
+MapCamera camera{0.0f, 0.0f, 4.0f};
 
 float deltaTime = 0.0f;
 float lastFrame = 0.0f;
@@ -42,7 +37,7 @@ int main() {
 #endif
 
         GLFWwindow *window = glfwCreateWindow(screen_width, screen_height,
-                                              "LearnOpenGL", NULL, NULL);
+                                              "MapSim", NULL, NULL);
         if (window == NULL) {
                 std::cout << "Failed to create glfw window\n";
                 glfwTerminate();
@@ -53,7 +48,7 @@ int main() {
         glfwSetCursorPosCallback(window, mouse_callback);
         glfwSetScrollCallback(window, scroll_callback);
 
-        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+        // glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
         if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
                 std::cout << "Failed to initialize GLAD\n";
@@ -63,83 +58,32 @@ int main() {
         // stbi_set_flip_vertically_on_load(true);
 
         glEnable(GL_DEPTH_TEST);
-        glEnable(GL_BLEND);
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-        // Shader shader{"src/shaders/shader.vs", "src/shaders/shader.fs"};
+        Shader texShader{"src/shaders/TexShader.vs",
+                         "src/shaders/TexShader.fs"};
 
-        Shader shader{"src/shaders/instancing.vs", "src/shaders/instancing.fs"};
-        Model planet{"resources/planet/planet.obj"};
-        Shader asteroid_shader{"src/shaders/ast_instancing.vs", "src/shaders/instancing.fs"};
-        Model rock{"resources/rock/rock.obj"};
+        GLuint perlin_map;
+        glGenTextures(1, &perlin_map);
+        glBindTexture(GL_TEXTURE_2D, perlin_map);
 
-        unsigned int amount = 2000000;
-        glm::mat4 *modelMatrices;
-        modelMatrices = new glm::mat4[amount];
-        srand(glfwGetTime());
-        float radius = 150.0f;
-        float offset = 100.0f;
-        for (unsigned int i = 0; i < amount; i++) {
-                glm::mat4 model = glm::mat4(1.0f);
-                // 1. translation: displace along circle with 'radius' in range
-                // [-offset, offset]
-                float angle = (float)i / (float)amount * 360.0f;
-                float displacement =
-                        (rand() % (int)(2 * offset * 100)) / 100.0f - offset;
-                float x = sin(angle) * radius + displacement;
-                displacement =
-                        (rand() % (int)(2 * offset * 100)) / 100.0f - offset;
-                float y = displacement * 0.4f; // keep height of field smaller
-                                               // compared to width of x and z
-                displacement =
-                        (rand() % (int)(2 * offset * 100)) / 100.0f - offset;
-                float z = cos(angle) * radius + displacement;
-                model = glm::translate(model, glm::vec3(x, y, z));
+        // unsigned char perlin_data[1024 * 1024];
+        unsigned char perlin_data[1024 * 1024];
+        create_noise(perlin_data, 1024, 1024);
 
-                // 2. scale: scale between 0.05 and 0.25f
-                float scale = (rand() % 20) / 100.0f + 0.05;
-                model = glm::scale(model, glm::vec3(scale));
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, 1024, 1024, 0,
+                     GL_DEPTH_COMPONENT, GL_UNSIGNED_BYTE, perlin_data);
+        glGenerateMipmap(GL_TEXTURE_2D);
 
-                // 3. rotation: add random rotation around a (semi)randomly
-                // picked rotation axis vector
-                float rotAngle = (rand() % 360);
-                model = glm::rotate(model, rotAngle,
-                                    glm::vec3(0.4f, 0.6f, 0.8f));
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
+                        GL_LINEAR_MIPMAP_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-                // 4. now add to list of matrices
-                modelMatrices[i] = model;
-        }
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, perlin_map);
 
-        GLuint buffer;
-        glGenBuffers(1, &buffer);
-        glBindBuffer(GL_ARRAY_BUFFER, buffer);
-        glBufferData(GL_ARRAY_BUFFER, amount * sizeof(glm::mat4),
-                     &modelMatrices[0], GL_STATIC_DRAW);
-
-        for (unsigned int i = 0; i < rock.meshes.size(); i++) {
-                GLuint VAO = rock.meshes[i].VAO;
-                glBindVertexArray(VAO);
-                std::size_t vec4size = sizeof(glm::vec4);
-                glEnableVertexAttribArray(3);
-                glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE,
-                                      4 * vec4size, (void *)0);
-                glEnableVertexAttribArray(4);
-                glVertexAttribPointer(4, 4, GL_FLOAT, GL_FALSE,
-                                      4 * vec4size, (void *)(vec4size));
-                glEnableVertexAttribArray(5);
-                glVertexAttribPointer(5, 4, GL_FLOAT, GL_FALSE,
-                                      4 * vec4size, (void *)(2 * vec4size));
-                glEnableVertexAttribArray(6);
-                glVertexAttribPointer(6, 4, GL_FLOAT, GL_FALSE,
-                                      4 * vec4size, (void *)(3 * vec4size));
-
-                glVertexAttribDivisor(3, 1);
-                glVertexAttribDivisor(4, 1);
-                glVertexAttribDivisor(5, 1);
-                glVertexAttribDivisor(6, 1);
-
-                glBindVertexArray(0);
-        }
+        GLuint quad_vao{}, quad_vbo{};
 
         while (!glfwWindowShouldClose(window)) {
                 float currentFrame = glfwGetTime();
@@ -150,36 +94,10 @@ int main() {
 
                 glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
                 glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-                glEnable(GL_DEPTH_TEST);
-                glEnable(GL_BLEND);
 
-                glm::mat4 projection = glm::perspective(
-                        glm::radians(camera.FOV),
-                        (float)screen_width / (float)screen_height, 0.1f,
-                        1000.0f);
-                glm::mat4 view = camera.GetViewMatrix();
-
-                shader.use();
-                shader.set_uniform("projection", projection);
-                shader.set_uniform("view", view);
-                glm::mat4 model = glm::mat4(1.0f);
-                model = glm::translate(model, glm::vec3(0.0f, -3.0f, 0.0f));
-                model = glm::scale(model, glm::vec3(4.0f, 4.0f, 4.0f));
-                shader.set_uniform("model", model);
-                planet.draw(shader);
-
-                asteroid_shader.use();
-                asteroid_shader.set_uniform("projection", projection);
-                asteroid_shader.set_uniform("view", view);
-                asteroid_shader.set_uniform("texture_diffuse1", 0);
-                glActiveTexture(GL_TEXTURE0);
-                glBindTexture(GL_TEXTURE_2D, rock.textures_loaded[0].id);
-                for (unsigned int i = 0; i < rock.meshes.size(); i++) {
-                        glBindVertexArray(rock.meshes[i].VAO);
-                        glDrawElementsInstanced(GL_TRIANGLES,
-                                                rock.meshes[i].indices.size(),
-                                                GL_UNSIGNED_INT, 0, amount);
-                }
+                texShader.use();
+                texShader.set_uniform("perlin_map", 0);
+                render_quad(quad_vao, quad_vbo);
 
                 glfwSwapBuffers(window);
                 glfwPollEvents();
@@ -187,6 +105,91 @@ int main() {
 
         glfwTerminate();
         return 0;
+}
+
+static int permutation[] = {
+        151, 160, 137, 91,  90,  15,  131, 13,  201, 95,  96,  53,  194, 233,
+        7,   225, 140, 36,  103, 30,  69,  142, 8,   99,  37,  240, 21,  10,
+        23,  190, 6,   148, 247, 120, 234, 75,  0,   26,  197, 62,  94,  252,
+        219, 203, 117, 35,  11,  32,  57,  177, 33,  88,  237, 149, 56,  87,
+        174, 20,  125, 136, 171, 168, 68,  175, 74,  165, 71,  134, 139, 48,
+        27,  166, 77,  146, 158, 231, 83,  111, 229, 122, 60,  211, 133, 230,
+        220, 105, 92,  41,  55,  46,  245, 40,  244, 102, 143, 54,  65,  25,
+        63,  161, 1,   216, 80,  73,  209, 76,  132, 187, 208, 89,  18,  169,
+        200, 196, 135, 130, 116, 188, 159, 86,  164, 100, 109, 198, 173, 186,
+        3,   64,  52,  217, 226, 250, 124, 123, 5,   202, 38,  147, 118, 126,
+        255, 82,  85,  212, 207, 206, 59,  227, 47,  16,  58,  17,  182, 189,
+        28,  42,  223, 183, 170, 213, 119, 248, 152, 2,   44,  154, 163, 70,
+        221, 153, 101, 155, 167, 43,  172, 9,   129, 22,  39,  253, 19,  98,
+        108, 110, 79,  113, 224, 232, 178, 185, 112, 104, 218, 246, 97,  228,
+        251, 34,  242, 193, 238, 210, 144, 12,  191, 179, 162, 241, 81,  51,
+        145, 235, 249, 14,  239, 107, 49,  192, 214, 31,  181, 199, 106, 157,
+        184, 84,  204, 176, 115, 121, 50,  45,  127, 4,   150, 254, 138, 236,
+        205, 93,  222, 114, 67,  29,  24,  72,  243, 141, 128, 195, 78,  66,
+        215, 61,  156, 180};
+
+static int fade(int t) { return t * t * t * (t * (t * 6 - 15) + 10); }
+
+static int lerp(int t, int a, int b) { return a + t * (b - a); }
+
+static int grad(int hash, int x, int y) {
+        int h = hash & 15;
+        int u = h < 8 ? x : y, v = h < 4 ? y : x;
+        return ((h & 1) == 0 ? u : -u) + ((h & 2) == 0 ? v : -v);
+}
+
+unsigned char perlin(int x, int y) {
+        int X = x & 255, Y = y & 255;
+        x -= X;
+        y -= Y;
+        int u = fade(x), v = fade(y);
+        int A = permutation[X], AA = permutation[A], AB = permutation[A + 1],
+            B = permutation[X + 1], BA = permutation[B],
+            BB = permutation[B + 1];
+        std::cout << A << " " << B << " " << AA << " " << AB << " " << BA << " "
+                  << BB << "\n";
+        return lerp(v,
+                    lerp(u, grad(permutation[AA], x, y),
+                         grad(permutation[BA], x - 1, y)),
+                    lerp(u, grad(permutation[AB], x, y - 1),
+                         grad(permutation[BB], x - 1, y - 1)));
+}
+
+void create_noise(unsigned char *data, int width, int height) {
+        for (int x = 0; x < width; x++) {
+                for (int y = 0; y < height; y++) {
+                        data[y * height + x] = perlin(x, y);
+                }
+        }
+}
+
+void render_quad(GLuint vao, GLuint vbo) {
+        if (vao == 0) {
+                // clang-format off
+                float quadVertices[] = {
+                        -1.0f,  1.0f, 0.0f, 0.0f, 1.0f,
+                        -1.0f, -1.0f, 0.0f, 0.0f, 0.0f,
+                         1.0f,  1.0f, 0.0f, 1.0f, 1.0f,
+                         1.0f, -1.0f, 0.0f, 1.0f, 0.0f,
+                };
+                // clang-format on
+                glGenVertexArrays(1, &vao);
+                glGenBuffers(1, &vbo);
+                glBindVertexArray(vao);
+                glBindBuffer(GL_ARRAY_BUFFER, vbo);
+                glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices),
+                             &quadVertices, GL_STATIC_DRAW);
+                glEnableVertexAttribArray(0);
+                glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE,
+                                      5 * sizeof(float), (void *)0);
+                glEnableVertexAttribArray(1);
+                glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE,
+                                      5 * sizeof(float),
+                                      (void *)(3 * sizeof(float)));
+        }
+        glBindVertexArray(vao);
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+        glBindVertexArray(0);
 }
 
 void framebuffer_size_callback(GLFWwindow *window, int width, int height) {
@@ -264,41 +267,6 @@ GLuint load_texture(char const *path) {
                           << std::endl;
         }
         stbi_image_free(data);
-
-        return textureID;
-}
-
-GLuint load_cubemap(std::vector<const char *> faces) {
-        if (faces.size() != 6) {
-                std::cout << "Vector of cube map faces must have a size of 6\n";
-        }
-
-        GLuint textureID;
-        glGenTextures(1, &textureID);
-        glBindTexture(GL_TEXTURE_CUBE_MAP, textureID);
-
-        int width, height, nrChannels;
-        for (unsigned int i = 0; i < faces.size(); i++) {
-                unsigned char *data =
-                        stbi_load(faces[i], &width, &height, &nrChannels, 0);
-                if (data) {
-                        glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0,
-                                     GL_RGB, width, height, 0, GL_RGB,
-                                     GL_UNSIGNED_BYTE, data);
-                } else {
-                        std::cout << "Cubemap tex failed to load at path: "
-                                  << faces[i] << std::endl;
-                }
-                stbi_image_free(data);
-        }
-        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S,
-                        GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T,
-                        GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R,
-                        GL_CLAMP_TO_EDGE);
 
         return textureID;
 }

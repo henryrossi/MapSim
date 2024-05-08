@@ -2,5 +2,6 @@ game.exe
 *.o
 *.a
 *.dll
+run.sh
 
 .vscode
