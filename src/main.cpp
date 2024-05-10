@@ -7,8 +7,9 @@
 #include <stb_image.h>
 
 #include "mapcamera.hpp"
-#include "shader.hpp"
 #include "noise.hpp"
+#include "shader.hpp"
+
 
 void framebuffer_size_callback(GLFWwindow *window, int width, int height);
 void process_input(GLFWwindow *window);
@@ -19,13 +20,15 @@ GLuint load_texture(const char *);
 void render_quad(GLuint vao, GLuint vbo);
 void create_noise(GLbyte *data, int width, int height);
 
-const int screen_width = 800;
-const int screen_height = 600;
+static int screen_width = 800;
+static int screen_height = 800;
 
 MapCamera camera{0.0f, 0.0f, 4.0f};
 
-float deltaTime = 0.0f;
-float lastFrame = 0.0f;
+static float deltaTime = 0.0f;
+static float lastFrame = 0.0f;
+
+glm::vec3 sun_dir{1.0, 0.0, -1.0};
 
 int main() {
         glfwInit();
@@ -49,7 +52,7 @@ int main() {
         glfwSetCursorPosCallback(window, mouse_callback);
         glfwSetScrollCallback(window, scroll_callback);
 
-        // glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_CAPTURED);
 
         if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
                 std::cout << "Failed to initialize GLAD\n";
@@ -61,7 +64,7 @@ int main() {
         glEnable(GL_DEPTH_TEST);
 
         Shader texShader{"src/shaders/TexShader.vs",
-                         "src/shaders/TexShader.fs"};
+                         "src/shaders/StepShadow.fs"};
 
         GLuint perlin_map;
         glGenTextures(1, &perlin_map);
@@ -96,6 +99,7 @@ int main() {
                 glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
                 texShader.use();
+                texShader.set_uniform("sun_dir", sun_dir);
                 texShader.set_uniform("perlin_map", 0);
                 render_quad(quad_vao, quad_vbo);
 
@@ -112,10 +116,15 @@ void create_noise(GLbyte *data, int width, int height) {
         for (int x = 0; x < width; x++) {
                 for (int y = 0; y < height; y++) {
                         float v = p.fbm_noise(x, y, 8);
-                        v += 1;
                         v *= 0.5;
-                        float c = ((abs((float)x - (width >> 1)) / (width >> 1)) + (abs((float)y - (height >> 1)) / (height >> 1)))/2;
-                        v *= 1 - c;
+                        v +=  0.2;
+                        float xpos = (float)x / width;
+                        float ypos = (float)y / height;
+                        float c = glm::distance(glm::vec2(xpos, ypos), glm::vec2(0.5));
+                        v -= c;
+                        if (v < 0.0) {
+                                v = 0.0;
+                        }
                         data[y * height + x] = v * 255;
                 }
         }
@@ -151,6 +160,8 @@ void render_quad(GLuint vao, GLuint vbo) {
 }
 
 void framebuffer_size_callback(GLFWwindow *window, int width, int height) {
+        screen_width = width;
+        screen_height = height;
         glViewport(0, 0, width, height);
 }
 
@@ -176,6 +187,9 @@ void mouse_callback(GLFWwindow *window, double xposIn, double yposIn) {
         float xpos = static_cast<float>(xposIn);
         float ypos = static_cast<float>(yposIn);
         camera.ProcessMouseMovement(xpos, ypos);
+
+        sun_dir = glm::normalize(glm::vec3((screen_width >> 1) - xpos,
+                                           -((screen_height >> 1) - ypos), -1000.0));
 }
 
 void scroll_callback(GLFWwindow *window, double xoffset, double yoffset) {
