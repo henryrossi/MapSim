@@ -2,6 +2,8 @@
 #define NOISE_H
 
 #include <cmath>
+#include <random>
+#include <chrono>
 #include <iostream>
 
 class perlin {

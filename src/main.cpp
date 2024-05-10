@@ -114,6 +114,8 @@ void create_noise(GLbyte *data, int width, int height) {
                         float v = p.fbm_noise(x, y, 8);
                         v += 1;
                         v *= 0.5;
+                        float c = ((abs((float)x - (width >> 1)) / (width >> 1)) + (abs((float)y - (height >> 1)) / (height >> 1)))/2;
+                        v *= 1 - c;
                         data[y * height + x] = v * 255;
                 }
         }

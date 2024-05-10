@@ -1,6 +1,6 @@
 #include "noise.hpp"
 
-static const int permutation[] = {
+static int permutation[] = {
         151, 160, 137, 91,  90,  15,  131, 13,  201, 95,  96,  53,  194, 233,
         7,   225, 140, 36,  103, 30,  69,  142, 8,   99,  37,  240, 21,  10,
         23,  190, 6,   148, 247, 120, 234, 75,  0,   26,  197, 62,  94,  252,
@@ -21,7 +21,22 @@ static const int permutation[] = {
         205, 93,  222, 114, 67,  29,  24,  72,  243, 141, 128, 195, 78,  66,
         215, 61,  156, 180};
 
+void shuffle() {
+        unsigned seed =
+                std::chrono::system_clock::now().time_since_epoch().count();
+        std::default_random_engine gen(seed);
+        std::uniform_int_distribution<int> dist{0, 255};
+        for (int i = 255; i > 0; i--) {
+                int index = dist(gen);
+                int temp = permutation[i];
+
+                permutation[i] = permutation[index];
+                permutation[index] = temp;
+        }
+}
+
 perlin::perlin() {
+        shuffle();
         for (int i = 0; i < 256; i++) {
                 p[256 + i] = p[i] = permutation[i];
         }
@@ -29,18 +44,18 @@ perlin::perlin() {
 
 float perlin::fbm_noise(float x, float y, int n_octaves) {
         float result = 0.0;
-	float amplitude = 1.0;
-	float frequency = 0.005;
+        float amplitude = 1.0;
+        float frequency = 0.005;
 
-	for (int octave = 0; octave < n_octaves; octave++) {
-		float n = amplitude * noise(x * frequency, y * frequency);
-		result += n;
-		
-		amplitude *= 0.5;
-		frequency *= 2.0;
-	}
+        for (int octave = 0; octave < n_octaves; octave++) {
+                float n = amplitude * noise(x * frequency, y * frequency);
+                result += n;
 
-	return result;
+                amplitude *= 0.5;
+                frequency *= 2.0;
+        }
+
+        return result;
 }
 
 float perlin::noise(float x, float y) {
@@ -77,15 +92,24 @@ float perlin::lerp(float t, float a, float b) { return a + t * (b - a); }
 
 float perlin::grad(int hash, float x, float y) {
         switch (hash & 0x7) {
-            case 0x0: return  x + y;
-            case 0x1: return  x;
-            case 0x2: return  x - y;
-            case 0x3: return -y;
-            case 0x4: return -x - y;
-            case 0x5: return -x;
-            case 0x6: return -x + y;
-            case 0x7: return  y;
-            default:  return  0.0;
+        case 0x0:
+                return x + y;
+        case 0x1:
+                return x;
+        case 0x2:
+                return x - y;
+        case 0x3:
+                return -y;
+        case 0x4:
+                return -x - y;
+        case 0x5:
+                return -x;
+        case 0x6:
+                return -x + y;
+        case 0x7:
+                return y;
+        default:
+                return 0.0;
         }
 
         // int h = hash & 3;

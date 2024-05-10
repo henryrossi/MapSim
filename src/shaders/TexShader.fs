@@ -8,13 +8,13 @@ out vec4 FragColor;
 void main () {
         float height = texture(perlin_map, tex_coords).r;
         vec3 color;
-        if (height < 0.5) {
+        if (height < 0.35) {
                 color = vec3(0.18, 0.67, 0.84);
-        } else if (height < 0.52) {
+        } else if (height < 0.4) {
                 color = vec3(0.95, 0.89, 0.64);
-        } else if (height < 0.7) {
+        } else if (height < 0.5) {
                 color = vec3(0.33, .78, 0.33);
-        } else if (height < 0.9) {
+        } else if (height < 0.65) {
                 color = vec3(0.09, 0.63, 0.08);
         } else {
                 color = vec3(0.83,0.84, 0.81);
